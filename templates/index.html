@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hayvan Tahmin Et</title>
+    <link rel="stylesheet" href="{{url_for('static', filename='css/index.css')}}">
+</head>
+<body>
+
+    <header>
+        <div class="logo">HAYVAN TAHMİN ET</div>
+        <nav>
+            <a href="about">Proje Hakkında</a>
+            <a href="contact">İletişim</a>
+        </nav>
+    </header>
+
+    <main>
+        <div class="intro-box">
+            <p>Resim Tahmin ve Analiz</p>
+        </div>
+
+        <div class="upload-section">
+            <span class="upload-label-text">Resim Yükleme Alanı:</span>
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="drop-zone" id="drop-zone">
+                    <p>FGörseli buraya sürükleyin veya tıklayarak seçin.</p>
+                    <p style="font-size: 12px; margin-top: 5px;">(PNG, JPG veya JPEG)</p>
+                    <img id="preview-img" src="" alt="Önizleme">
+                </div>
+                <input type="file" id="file-input" name="file" accept="image/*">
+                <button type="submit" class="btn-submit">Tahmin Et</button>
+            </form>
+        </div>
+
+        <div class="result-section" id="result-section">
+            <h3>Analiz Sonuçları</h3>
+            <table class="result-table">
+                <thead>
+                    <tr>
+                        <th>Sınıf (Hayvan)</th>
+                        <th>Olasılık Yüzdesi</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <footer>
+       <a href="https://github.com/firatoz412" target="_blank">GitHub Linkim</a>
+    </footer>
+-
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const previewImg = document.getElementById('preview-img');
+        const uploadForm = document.getElementById('upload-form');
+        const resultSection = document.getElementById('result-section');
+        const tableBody = document.getElementById('table-body');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    previewImg.style.display = 'inline-block';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                fileInput.files = e.dataTransfer.files;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImg.src = e.target.result;
+                    previewImg.style.display = 'inline-block';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        //veri gönderme
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!fileInput.files[0]) {
+                alert('önce resim seçin.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            document.querySelector('.btn-submit').innerText = "Yükleniyor...";
+
+            try {
+                //predict endpoint...
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                //tablo doldurma
+                tableBody.innerHTML = `
+                    <tr style="font-weight: bold; background-color: rgba(0,0,0,0.02);">
+                        <td>🐾 En Yakın Tahmin: ${data.prediction}</td>
+                        <td>%${(data.confidence * 100).toFixed(1)}</td>
+                    </tr>
+                    <tr>
+                        <td>Diğer Olasılıklar</td>
+                        <td style="color: var(--gray)">Hesaplandı</td>
+                    </tr>
+                `;
+                
+                resultSection.style.display = 'block';
+                resultSection.scrollIntoView({ behavior: 'smooth' });//sonuçlara yönel...
+
+            } catch (error) {
+                console.error('Hata:', error);
+                alert('Tahmin sırasında hata meydana geldi.');
+            } finally {
+                document.querySelector('.btn-submit').innerText = "Tahmin Et";
+            }
+        });
+    </script>
+</body>
+</html>
